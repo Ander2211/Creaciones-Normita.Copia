@@ -1,0 +1,9 @@
+﻿@inject NavigationManager Navigation
+
+@code {
+    protected override void OnInitialized()
+    {
+        // Preferible SPA-navigation (no recargar). Si necesitas recargar usa true.
+        Navigation.NavigateTo("/", replace: true);
+    }
+}

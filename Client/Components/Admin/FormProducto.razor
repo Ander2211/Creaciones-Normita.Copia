@@ -1,0 +1,298 @@
+@using Shared.Models
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Authorization
+@inject HttpClient Http
+@inject AuthenticationStateProvider AuthStateProvider
+
+@code {
+    [Parameter] public EventCallback OnProductoGuardado { get; set; }
+
+    // Nuevo: producto existente para edición
+    [Parameter] public Producto? ProductoExistente { get; set; }
+
+    private Producto producto = new();
+    private List<IBrowserFile> archivosSeleccionados = new List<IBrowserFile>();
+    private List<string> imagenPreviewUrls = new List<string>();
+    private bool subiendoImagen = false;
+    private string? error;
+    private string? mensaje;
+
+    protected override void OnParametersSet()
+    {
+        if (ProductoExistente is not null)
+        {
+            // Precargamos datos del producto existente
+            producto = new Producto
+            {
+                Id = ProductoExistente.Id,
+                Nombre = ProductoExistente.Nombre,
+                Descripcion = ProductoExistente.Descripcion,
+                Precio = ProductoExistente.Precio,
+                ImagenUrls = ProductoExistente.ImagenUrls != null ? new List<string>(ProductoExistente.ImagenUrls) : new List<string>(),
+                Activo = ProductoExistente.Activo
+            };
+        }
+        else
+        {
+            // Nuevo producto
+            producto = new Producto { Activo = true, ImagenUrls = new List<string>() };
+        }
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        error = null;
+        mensaje = null;
+        archivosSeleccionados.Clear();
+        imagenPreviewUrls.Clear();
+
+        // Limitamos a 3 archivos
+        var files = e.GetMultipleFiles(3);
+        foreach (var f in files)
+        {
+            archivosSeleccionados.Add(f);
+            using var stream = f.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            var buffer = new byte[f.Size];
+            await stream.ReadAsync(buffer, 0, (int)f.Size);
+            imagenPreviewUrls.Add($"data:{f.ContentType};base64,{Convert.ToBase64String(buffer)}");
+        }
+    }
+
+    private async Task SubirImagen()
+    {
+        if (archivosSeleccionados == null || archivosSeleccionados.Count == 0) return;
+
+        error = null;
+        mensaje = null;
+        subiendoImagen = true;
+        try
+        {
+            var token = await GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                error = "No tienes sesión activa.";
+                return;
+            }
+
+            using var content = new MultipartFormDataContent();
+            // Adjuntamos hasta 3 archivos con el mismo nombre de campo
+            foreach (var f in archivosSeleccionados.Take(3))
+            {
+                var fs = f.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+                var sc = new StreamContent(fs);
+                sc.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(f.ContentType);
+                content.Add(sc, "files", f.Name);
+            }
+
+            var request = new HttpRequestMessage(HttpMethod.Post, "api/productos/upload-image")
+            {
+                Content = content
+            };
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var response = await Http.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                error = $"❌ Error al subir imagen: {response.StatusCode}";
+                return;
+            }
+            // Esperamos un objeto { urls: [] }
+            var uploadResult = await response.Content.ReadFromJsonAsync<UploadMultipleResp>();
+            if (uploadResult == null || uploadResult.Urls == null || uploadResult.Urls.Count == 0)
+            {
+                error = "❌ No se recibió ninguna URL válida desde el servidor.";
+                return;
+            }
+
+            producto.ImagenUrls = uploadResult.Urls.Take(3).ToList();
+            mensaje = $"✅ {producto.ImagenUrls.Count} imagen(es) subida(s) correctamente.";
+            _ = OcultarMensaje();
+        }
+        catch (Exception ex)
+        {
+            error = $"❌ Excepción al subir imagen: {ex.Message}";
+        }
+        finally
+        {
+            subiendoImagen = false;
+        }
+    }
+
+    private async Task<string?> GetTokenAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            // Cambia "access_token" por "AuthToken"
+            return user.Claims.FirstOrDefault(c => c.Type == "AuthToken")?.Value;
+        }
+        return null;
+    }
+
+    private async Task Guardar()
+    {
+        error = null;
+        mensaje = null;
+
+        if (producto.ImagenUrls == null || producto.ImagenUrls.Count == 0)
+        {
+            error = "Primero sube al menos una imagen para el producto.";
+            return;
+        }
+
+        try
+        {
+            var token = await GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                error = "No tienes sesión activa.";
+                return;
+            }
+
+            var request = new HttpRequestMessage(
+                ProductoExistente is null ? HttpMethod.Post : HttpMethod.Put,
+                ProductoExistente is null ? "api/productos" : $"api/productos/{producto.Id}"
+            )
+            {
+                Content = JsonContent.Create(producto)
+            };
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var resp = await Http.SendAsync(request);
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                error = $"❌ Error al guardar producto: {resp.StatusCode}";
+                return;
+            }
+
+            mensaje = ProductoExistente is null
+                ? "✅ Producto guardado con éxito."
+                : "✅ Producto actualizado con éxito.";
+
+            _ = OcultarMensaje();
+
+            await OnProductoGuardado.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            error = $"❌ Excepción al guardar: {ex.Message}";
+        }
+    }
+
+    private async Task OcultarMensaje()
+    {
+        await Task.Delay(3500);
+        mensaje = null;
+        StateHasChanged();
+    }
+
+    private class UploadResp
+    {
+        public string? Url { get; set; }
+        public string? ImageUrl { get; set; }
+    }
+
+    private class UploadMultipleResp
+    {
+        public List<string>? Urls { get; set; }
+    }
+}
+
+<EditForm Model="producto" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator />
+    <div class="bg-white rounded-2xl shadow p-6 space-y-4">
+        <h3 class="text-xl font-semibold text-gray-800">
+            @(ProductoExistente is null ? "Nuevo Producto" : "Editar Producto")
+        </h3>
+
+        @if (!string.IsNullOrEmpty(mensaje))
+        {
+            <div class="bg-green-50 text-green-700 border border-green-200 rounded-lg p-3 transition">
+                @mensaje
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <div class="bg-red-50 text-red-700 border border-red-200 rounded-lg p-3 transition">
+                @error
+            </div>
+        }
+
+        <!-- Imagen -->
+        <div class="space-y-2">
+            <label class="block text-sm font-medium text-gray-700">Imagen</label>
+            <InputFile OnChange="OnFileSelected" multiple />
+            <div class="flex items-center gap-3">
+                <button type="button"
+                        class="px-3 py-1.5 bg-pink-200 text-gray-900 rounded-lg hover:bg-purple-200 disabled:opacity-50"
+                        disabled="@(archivosSeleccionados == null || archivosSeleccionados.Count == 0 || subiendoImagen)"
+                        @onclick="SubirImagen">
+                    @(subiendoImagen ? "Subiendo..." : "Subir imagen")
+                </button>
+                @if (producto.ImagenUrls != null && producto.ImagenUrls.Count > 0)
+                {
+                    <span class="text-sm text-green-700">Imagen lista ✔</span>
+                }
+            </div>
+            @if (imagenPreviewUrls != null && imagenPreviewUrls.Count > 0)
+            {
+                <div class="mt-2 flex gap-2">
+                    @foreach (var url in imagenPreviewUrls)
+                    {
+                        <img src="@url" alt="Preview" class="w-24 h-24 object-cover rounded-lg border" />
+                    }
+                </div>
+            }
+            else if (producto.ImagenUrls != null && producto.ImagenUrls.Count > 0)
+            {
+                <div class="mt-2 flex gap-2">
+                    @foreach (var url in producto.ImagenUrls.Take(3))
+                    {
+                        <img src="@url" alt="Imagen actual" class="w-24 h-24 object-cover rounded-lg border" />
+                    }
+                </div>
+            }
+        </div>
+
+        <!-- Nombre -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700">Nombre</label>
+            <InputText @bind-Value="producto.Nombre"
+                       class="mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-300 focus:outline-none" />
+            <ValidationMessage For="@(() => producto.Nombre)" />
+        </div>
+
+        <!-- Descripción -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700">Descripción</label>
+            <InputTextArea @bind-Value="producto.Descripcion"
+                           class="mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-300 focus:outline-none" />
+            <ValidationMessage For="@(() => producto.Descripcion)" />
+        </div>
+
+        <!-- Precio + Activo -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Precio</label>
+                <InputNumber @bind-Value="producto.Precio"
+                             class="mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-300 focus:outline-none" />
+                <ValidationMessage For="@(() => producto.Precio)" />
+            </div>
+            <div class="flex items-end gap-2">
+                <InputCheckbox @bind-Value="producto.Activo" class="h-5 w-5" />
+                <span class="text-sm text-gray-700">Activo</span>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-3">
+            <button type="reset" class="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-100">
+                Limpiar
+            </button>
+            <button type="submit" class="px-4 py-2 bg-pink-200 text-gray-900 rounded-lg hover:bg-purple-200">
+                @(ProductoExistente is null ? "Guardar Producto" : "Actualizar Producto")
+            </button>
+        </div>
+    </div>
+</EditForm>

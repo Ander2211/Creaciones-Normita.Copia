@@ -1,0 +1,219 @@
+﻿@inject HttpClient Http
+@inject NavigationManager Navigation
+@using Client.Services
+@inject ToastService ToastService
+
+<header class="bg-white shadow-md fixed top-0 left-0 right-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-16">
+
+            <!-- Logo -->
+            <div class="flex-shrink-0 flex items-center">
+                <NavLink href="/" class="flex items-center">
+                    <img src="images/logo.png" alt="Creaciones Normita" class="h-12 w-auto" />
+                </NavLink>
+            </div>
+
+            <!-- Links desktop -->
+            <div class="hidden md:flex space-x-6 items-center">
+                <NavLink class="text-gray-700 hover:text-pink-600 transition font-medium" href="/" Match="NavLinkMatch.All">
+                    Inicio
+                </NavLink>
+                <NavLink class="text-gray-700 hover:text-pink-600 transition font-medium" href="productos">
+                    Catálogo
+                </NavLink>
+                <NavLink class="text-gray-700 hover:text-pink-600 transition font-medium" href="nosotros">
+                    Nosotros
+                </NavLink>
+                <NavLink class="text-gray-700 hover:text-pink-600 transition font-medium" href="contacto">
+                    Contacto
+                </NavLink>
+                <NavLink class="text-gray-700 hover:text-pink-600 transition font-medium" href="como-ordenar">
+                    ¿Como ordenar?
+                </NavLink>
+                @if (userRol == "Administrador")
+                {
+                    <NavLink class="text-gray-700 hover:text-pink-600 transition font-medium" href="admin">
+                        Admin
+                    </NavLink>
+                }
+
+                <!-- 🔹 Login / Usuario -->
+                @if (string.IsNullOrEmpty(username))
+                {
+                    <NavLink href="login"
+                             class="px-4 py-2 rounded-lg bg-pink-500 text-white hover:bg-pink-600 transition">
+                        <i class="bi bi-person-circle"></i>
+                        <span>Login</span>
+                    </NavLink>
+                }
+                else
+                {
+                    <!-- Menú usuario con icono -->
+                    <div class="relative">
+                        <button @onclick="ToggleDropdown"
+                                class="px-4 py-2 rounded-lg bg-pink-500 text-white hover:bg-pink-600 transition flex items-center space-x-1">
+                            <i class="bi bi-person-circle"></i>
+                            <span>@username</span>
+                            <i class="bi @(isDropdownOpen ? "bi-caret-up-fill" : "bi-caret-down-fill") ml-1"></i>
+                        </button>
+                        @if (isDropdownOpen)
+                        {
+                            <div class="absolute right-0 bg-white shadow-md rounded-md mt-2 py-2 w-32 z-50">
+                                <button @onclick="Logout"
+                                        class="block px-4 py-2 text-gray-800 hover:bg-pink-100 w-full text-left">
+                                    Logout
+                                </button>
+                            </div>
+                        }
+                    </div>
+                }
+
+            </div>
+
+            <!-- Botón hamburguesa -->
+            <div class="flex items-center md:hidden">
+                <button @onclick="ToggleNavMenu"
+                        class="inline-flex items-center justify-center p-2 rounded-md text-gray-600 hover:text-pink-600 focus:outline-none">
+                    <i class="bi bi-list text-2xl"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Menú móvil -->
+    <div class="md:hidden" hidden="@collapseNavMenu">
+        <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white shadow-lg">
+            <NavLink class="block px-3 py-2 rounded-md text-gray-700 hover:text-pink-600 hover:bg-pink-50" href="/" Match="NavLinkMatch.All">
+                Inicio
+            </NavLink>
+            <NavLink class="block px-3 py-2 rounded-md text-gray-700 hover:text-pink-600 hover:bg-pink-50" href="productos">
+                Catálogo
+            </NavLink>
+            <NavLink class="block px-3 py-2 rounded-md text-gray-700 hover:text-pink-600 hover:bg-pink-50" href="nosotros">
+                Nosotros
+            </NavLink>
+            <NavLink class="block px-3 py-2 rounded-md text-gray-700 hover:text-pink-600 hover:bg-pink-50" href="contacto">
+                Contacto
+            </NavLink>
+            <NavLink class="block px-3 py-2 rounded-md text-gray-700 hover:text-pink-600 hover:bg-pink-50" href="como-ordenar">
+                ¿Como ordenar?
+            </NavLink>
+            @if (userRol == "Administrador")
+            {
+                <NavLink class="block px-3 py-2 rounded-md text-gray-700 hover:text-pink-600 hover:bg-pink-50" href="admin">
+                    Admin
+                </NavLink>
+            }
+
+            @if (string.IsNullOrEmpty(username))
+            {
+                <NavLink href="login"
+                         class="block w-full text-center px-3 py-2 rounded-md
+                                bg-pink-500 text-white font-semibold
+                                hover:bg-pink-600 !bg-pink-500 !text-white">
+                    Login
+                </NavLink>
+            }
+            else
+            {
+                <div class="relative">
+                    <button class="w-full flex justify-between items-center px-3 py-2 text-gray-700 hover:text-pink-600"
+                            @onclick="ToggleDropdown">
+                        <span class="flex items-center space-x-1">
+                            <i class="bi bi-person-circle"></i>
+                            <span>@username</span>
+                        </span>
+                        <i class="bi @(isDropdownOpen ? "bi-caret-up-fill" : "bi-caret-down-fill")"></i>
+                    </button>
+                    @if (isDropdownOpen)
+                    {
+                        <div class="bg-white shadow-md rounded-md mt-1 py-0 w-full z-50">
+                            <button @onclick="Logout" class="block w-full text-gray-800 hover:bg-pink-100 text-left px-4 py-3">
+                                Logout
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</header>
+
+@code {
+    private string? username;
+    private string? userRol;
+    private bool isDropdownOpen = false;
+    private bool collapseNavMenu = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUser();
+    }
+
+    private async Task LoadUser()
+    {
+        try
+        {
+            var response = await SendRequestWithCookie(HttpMethod.Get, "/api/profile");
+            if (response.IsSuccessStatusCode)
+            {
+                var user = await response.Content.ReadFromJsonAsync<UserDto>();
+                username = user?.UserName;
+                userRol = user?.Roles?.Contains("Administrador", StringComparer.OrdinalIgnoreCase) == true
+                ? "Administrador"
+                : null;
+            }
+            else
+            {
+                username = null;
+                userRol = null;
+            }
+        }
+        catch
+        {
+            username = null;
+            userRol = null;
+        }
+    }
+
+    private void ToggleDropdown() => isDropdownOpen = !isDropdownOpen;
+    private void ToggleNavMenu() => collapseNavMenu = !collapseNavMenu;
+
+    private async Task Logout()
+    {
+        try
+        {
+            var response = await SendRequestWithCookie(HttpMethod.Post, "/api/Login/logout");
+            if (!response.IsSuccessStatusCode)
+            {
+                await ToastService.ShowToast("No se pudo cerrar sesión correctamente", "error");
+            }
+            else
+            {
+                await ToastService.ShowToast("Sesión cerrada exitosamente", "success");
+            }
+        }
+        catch (HttpRequestException)
+        {
+            await ToastService.ShowToast("Error de conexión al cerrar sesión", "error");
+        }
+        finally
+        {
+            username = null;
+            userRol = null;
+            isDropdownOpen = false;
+            Navigation.NavigateTo("login", true);
+        }
+    }
+
+    private async Task<HttpResponseMessage> SendRequestWithCookie(HttpMethod method, string url, object? body = null)
+    {
+        var request = new HttpRequestMessage(method, url);
+        if (body != null)
+            request.Content = JsonContent.Create(body);
+
+        request.SetBrowserRequestCredentials(BrowserRequestCredentials.Include);
+        return await Http.SendAsync(request);
+    }
+}

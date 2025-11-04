@@ -1,0 +1,50 @@
+﻿@using Client.Services
+@inject ToastService ToastService
+
+<div class="@($"fixed top-5 right-5 z-50 px-4 py-3 rounded-lg border transition-opacity duration-500 {(isVisible ? "opacity-100" : "opacity-0")}")"
+     style="pointer-events:@(isVisible ? "auto" : "none"); border-color:@BorderColor; background-color:@BackgroundColor; color:white;">
+    @message
+</div>
+
+@code {
+    private string message = "";
+    private bool isVisible = false;
+    private string BorderColor = "gray";
+    private string BackgroundColor = "rgba(128,128,128,0.6)"; // gris semitransparente
+
+    protected override void OnInitialized()
+    {
+        ToastService.OnShow += ShowToast;
+    }
+
+    private async void ShowToast(string msg, string type, int duration)
+    {
+        message = msg;
+
+        // Colores según tipo
+        (BorderColor, BackgroundColor) = type switch
+        {
+            "success" => ("#22c55e", "rgba(34, 197, 94, 0.8)"), // verde
+            "error" => ("#ef4444", "rgba(239, 68, 68, 0.8)"),    // rojo
+            "info" => ("#3b82f6", "rgba(59, 130, 246, 0.8)"),    // azul
+            _ => ("gray", "rgba(128,128,128,0.6)")
+        };
+
+        // Mostrar toast
+        isVisible = true;
+        await InvokeAsync(StateHasChanged);
+
+        // Esperar duración
+        await Task.Delay(duration);
+
+        // Desvanecer
+        isVisible = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        ToastService.OnShow -= ShowToast;
+    }
+}
+

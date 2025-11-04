@@ -1,0 +1,138 @@
+@page "/admin"
+@using Shared.Models
+@using Client.Components.Admin
+@using Client.Components
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Client.Services
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ToastService ToastService
+@inject IJSRuntime JSRuntime
+@inject AuthGuardService AuthGuardService
+
+@if (isCheckingAuth)
+{
+    <!-- Aquí no mostramos nada mientras verificamos -->
+    <div class="w-full h-screen flex justify-center items-center">
+        <p class="text-gray-500">Verificando autorización...</p>
+    </div>
+}
+else if (!isAuthorized)
+{
+    <!-- No debería alcanzar a verse porque redirigimos -->
+}
+else
+{
+    <!-- Contenido real de Admin -->
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 space-y-10">
+        <h2 class="text-3xl font-bold text-gray-800 mb-4">Panel de Administración</h2>
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <div class="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3">
+                @error
+            </div>
+        }
+
+        <!-- Card formulario -->
+        <div class="bg-white rounded-2xl shadow p-6 space-y-4">
+            <h3 class="text-xl font-semibold text-gray-800 border-b pb-2">Nuevo Producto</h3>
+            <FormProducto OnProductoGuardado="RecargarProductos" />
+        </div>
+
+        <!-- Card lista -->
+        <div class="bg-white rounded-2xl shadow p-6 space-y-4">
+            <h3 class="text-xl font-semibold text-gray-800 border-b pb-2">Lista de Productos</h3>
+
+            @if (cargando)
+            {
+                <div class="flex items-center gap-2 text-gray-600">
+                    <svg class="animate-spin h-5 w-5 text-pink-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                    <span>Cargando productos...</span>
+                </div>
+            }
+            else
+            {
+                <ListaProductos Productos="productos" OnProductosChanged="RecargarProductos" />
+
+                <!-- Paginación -->
+                <Pagination PageNumber="respuesta?.PageNumber ?? 1"
+                            TotalPages="respuesta?.TotalPages ?? 1"
+                            HasPreviousPage="respuesta?.HasPreviousPage ?? false"
+                            HasNextPage="respuesta?.HasNextPage ?? false"
+                            OnPrevious="AnteriorPagina"
+                            OnNext="SiguientePagina" />
+            }
+        </div>
+    </section>
+    <!-- resto del admin -->
+}
+
+
+@code {
+    private PaginatedResponse<Producto>? respuesta;
+    private List<Producto> productos = new();
+    private bool cargando;
+    private string? error;
+
+    private int pagina = 1;
+    private int porPagina = 5; // 👈 configurable
+    private bool isCheckingAuth = true;
+    private bool isAuthorized = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isAuthorized = await AuthGuardService.IsAuthorizedAsync("Administrador");
+        if (!isAuthorized)
+        {
+            NavigationManager.NavigateTo("/", false);
+        }
+        isCheckingAuth = false;
+        await RecargarProductos();
+    }
+
+    private async Task RecargarProductos()
+    {
+        cargando = true;
+        error = null;
+        try
+        {
+            respuesta = await Http.GetFromJsonAsync<PaginatedResponse<Producto>>(
+                $"api/productos?pagina={pagina}&porPagina={porPagina}");
+
+            productos = respuesta?.Items ?? new List<Producto>();
+        }
+        catch (Exception ex)
+        {
+            error = $"No se pudieron cargar los productos: {ex.Message}";
+            productos = new();
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task AnteriorPagina()
+    {
+        if (respuesta?.HasPreviousPage ?? false)
+        {
+            pagina--;
+            await RecargarProductos();
+        }
+    }
+
+    private async Task SiguientePagina()
+    {
+        if (respuesta?.HasNextPage ?? false)
+        {
+            pagina++;
+            await RecargarProductos();
+        }
+    }
+}

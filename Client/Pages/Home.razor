@@ -1,0 +1,101 @@
+﻿@page "/"
+@using Shared.Models
+@using Client.Services
+@using Client.Components   <!-- importa tus componentes -->
+@inject ProductoService ProductoService
+@inject NavigationManager NavigationManager
+@inject ToastService ToastService
+@inject IJSRuntime JSRuntime
+
+<!-- Hero / Banner -->
+<section class="relative w-full h-[40vh] bg-cover bg-center rounded-xl shadow-lg overflow-hidden"
+         style="background-image: url('images/1.jpg')">
+    <div class="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-center px-4">
+        <h1 class="text-3xl md:text-5xl font-bold text-white drop-shadow-lg">
+            Creaciones Normita
+        </h1>
+        <p class="mt-3 text-lg md:text-xl text-gray-200">
+            Viste tus momentos más especiales con elegancia ✨
+        </p>
+        <!-- 🔹 Subtítulo sobre envíos internacionales -->
+        <p class="mt-2 text-base md:text-lg text-pink-200 font-medium">
+            Envíos internacionales a EE.UU. 🇺🇸 y Europa 🇪🇺
+        </p>
+        <button @onclick="IrACatalogo" 
+                class="mt-5 bg-pink-200 text-gray-900 px-6 py-2 rounded-lg font-medium 
+                       hover:bg-purple-200 transition transform hover:scale-105 duration-300">
+            Ver catálogo completo
+        </button>
+    </div>
+</section>
+
+<!-- 🔹 Beneficios como componente -->
+<Beneficios />
+
+<!-- Sección destacados -->
+<section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12">
+    <h2 class="text-2xl md:text-3xl font-bold text-center text-gray-800 mb-8">Destacados</h2>
+
+    @if (isLoading)
+    {
+        <p class="text-center text-gray-500">Cargando vestidos...</p>
+    }
+    else if (Vestidos.Count == 0)
+    {
+        <p class="text-center text-red-500">No se encontraron vestidos.</p>
+    }
+    else
+    {
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            @foreach (var vestido in Vestidos.Where(v => v.Activo).OrderByDescending(v => v.FechaCreacion).Take(3))
+            {
+                <ProductoCard Producto="vestido" OnCotizar="AbrirCotizar" />
+            }
+        </div>
+    }
+</section>
+
+<Whatsapp/>
+
+<CotizarModal Mostrar="mostrarModal"
+              Producto="productoSeleccionado"
+              OnClose="CerrarModal" />
+
+@code {
+    private bool isLoading = true;
+    private List<Producto> Vestidos = new();
+
+    // Para el modal
+    private bool mostrarModal = false;
+    private Producto? productoSeleccionado;
+
+    private void IrACatalogo()
+    {
+        NavigationManager.NavigateTo("/productos");
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Vestidos = await ProductoService.GetProductosAsync();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void AbrirCotizar(Producto p)
+    {
+        productoSeleccionado = p;
+        mostrarModal = true;
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+        productoSeleccionado = null;
+    }
+}
+

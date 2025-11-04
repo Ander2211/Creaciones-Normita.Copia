@@ -1,0 +1,141 @@
+@page "/productos"
+@using Shared.Models
+@using Client.Services
+@inject HttpClient Http
+
+<section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10">
+    <h2 class="text-3xl font-bold text-center text-gray-800 mb-10">Catálogo de Vestidos</h2>
+
+    @if (errorMessage != null)
+    {
+        <div class="text-center text-red-500 p-4 mb-4 bg-red-50 rounded-lg">
+            @errorMessage
+        </div>
+    }
+    else if (paginatedResponse == null)
+    {
+        <p class="text-center text-gray-500">Cargando...</p>
+    }
+    else if (paginatedResponse.Items.Count == 0)
+    {
+        <p class="text-center text-red-500">No hay productos disponibles.</p>
+    }
+    else
+    {
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            @foreach (var p in paginatedResponse.Items.Where(p => p.Activo))
+            {
+                <div class="bg-white rounded-xl shadow-md overflow-hidden
+                            hover:shadow-xl transform hover:scale-105 hover:-translate-y-1
+                            transition duration-300 hover:ring-2 hover:ring-pink-300">
+                    <div class="aspect-[3/4] w-full overflow-hidden">
+                        <img src="@(p.ImagenUrls != null && p.ImagenUrls.Count>0 ? p.ImagenUrls[0] : string.Empty)" alt="@p.Nombre" class="w-full h-full object-cover" />
+                    </div>
+                    <div class="p-4 flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-800 line-clamp-1">@p.Nombre</h3>
+                            <p class="text-gray-600 text-sm line-clamp-2">@p.Descripcion</p>
+                        </div>
+                        <div class="mt-3 flex items-center justify-between">
+                            <span class="bg-pink-200 text-gray-900 text-sm font-medium px-3 py-1 rounded-lg">
+                                $@p.Precio
+                            </span>
+                            <button type="button" @onclick="() => AbrirCotizar(p)"
+                                    class="bg-pink-200 text-gray-900 px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-200 transition">
+                                Cotizar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="mt-8 flex justify-center gap-2">
+            @if (paginatedResponse.HasPreviousPage)
+            {
+                <button @onclick="() => CambiarPagina(paginatedResponse.PageNumber - 1)" 
+                        class="px-4 py-2 bg-pink-200 text-gray-900 rounded-lg hover:bg-pink-300 transition">
+                    Anterior
+                </button>
+            }
+            
+            <span class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg">
+                Página @paginatedResponse.PageNumber de @paginatedResponse.TotalPages
+            </span>
+
+            @if (paginatedResponse.HasNextPage)
+            {
+                <button @onclick="() => CambiarPagina(paginatedResponse.PageNumber + 1)"
+                        class="px-4 py-2 bg-pink-200 text-gray-900 rounded-lg hover:bg-pink-300 transition">
+                    Siguiente
+                </button>
+            }
+        </div>
+    }
+</section>
+<!-- 🔹 Boton Whatsapp como componente -->
+<Whatsapp/>
+<!-- 🔹 Beneficios como componente -->
+<Beneficios />
+@if (productoSeleccionado is not null)
+{
+    <CotizarModal Mostrar="mostrarModal"
+                  Producto="productoSeleccionado"
+                  OnClose="CerrarModal" />
+}
+
+
+@code {
+    private PaginatedResponse<Producto>? paginatedResponse;
+    private bool mostrarModal = false;
+    private Producto? productoSeleccionado;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarProductos(1);
+    }
+
+    private string? errorMessage;
+
+    private async Task CargarProductos(int pagina)
+    {
+        try
+        {
+            errorMessage = null;
+            var response = await Http.GetAsync($"api/productos?pagina={pagina}");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                paginatedResponse = await response.Content.ReadFromJsonAsync<PaginatedResponse<Producto>>();
+                StateHasChanged();
+            }
+            else
+            {
+                errorMessage = $"Error al cargar productos: {response.StatusCode}";
+                Console.WriteLine($"Error al cargar productos: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Error al cargar los productos";
+            Console.WriteLine($"Error al cargar productos: {ex.Message}");
+        }
+    }
+
+    private async Task CambiarPagina(int nuevaPagina)
+    {
+        await CargarProductos(nuevaPagina);
+    }
+
+    private void AbrirCotizar(Producto p)
+    {
+        productoSeleccionado = p;
+        mostrarModal = true;
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+        productoSeleccionado = null;
+    }
+}

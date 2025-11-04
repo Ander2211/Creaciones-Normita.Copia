@@ -1,0 +1,26 @@
+@code {
+    [Parameter] public int PageNumber { get; set; }
+    [Parameter] public int TotalPages { get; set; }
+    [Parameter] public bool HasPreviousPage { get; set; }
+    [Parameter] public bool HasNextPage { get; set; }
+    [Parameter] public EventCallback OnPrevious { get; set; }
+    [Parameter] public EventCallback OnNext { get; set; }
+}
+
+<div class="flex justify-between items-center mt-6">
+    <button @onclick="OnPrevious"
+            disabled="@(!HasPreviousPage)"
+            class="px-4 py-2 bg-gray-200 rounded disabled:opacity-50">
+        Anterior
+    </button>
+
+    <span class="text-gray-700">
+        Página @PageNumber de @TotalPages
+    </span>
+
+    <button @onclick="OnNext"
+            disabled="@(!HasNextPage)"
+            class="px-4 py-2 bg-gray-200 rounded disabled:opacity-50">
+        Siguiente
+    </button>
+</div>

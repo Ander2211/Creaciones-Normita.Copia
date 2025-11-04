@@ -1,0 +1,248 @@
+@using Shared.Models
+@using Client.Components.Admin
+@using Microsoft.AspNetCore.Components.Authorization
+@inject HttpClient Http
+@inject AuthenticationStateProvider AuthStateProvider
+
+@code {
+    [Parameter] public List<Producto> Productos { get; set; } = new();
+    [Parameter] public EventCallback OnProductosChanged { get; set; }
+
+    private bool trabajando;
+    private string? error;
+
+    // 👇 Para edición
+    private bool mostrarEdicion;
+    private Producto? productoEditar;
+
+    private async Task<string?> GetTokenAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            return user.Claims.FirstOrDefault(c => c.Type == "AuthToken")?.Value;
+        }
+        return null;
+    }
+
+    private async Task ToggleActivo(Producto p)
+    {
+        error = null;
+        trabajando = true;
+        try
+        {
+            var token = await GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                error = "No tienes sesión activa.";
+                return;
+            }
+
+            var actualizado = new Producto
+            {
+                Id = p.Id,
+                Nombre = p.Nombre,
+                Descripcion = p.Descripcion,
+                Precio = p.Precio,
+                ImagenUrls = p.ImagenUrls,
+                Activo = !p.Activo
+            };
+
+            var request = new HttpRequestMessage(HttpMethod.Put, $"api/productos/{p.Id}")
+            {
+                Content = JsonContent.Create(actualizado)
+            };
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var resp = await Http.SendAsync(request);
+            if (!resp.IsSuccessStatusCode)
+            {
+                error = $"Error al actualizar: {resp.StatusCode}";
+                return;
+            }
+
+            await OnProductosChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            error = $"Excepción: {ex.Message}";
+        }
+        finally
+        {
+            trabajando = false;
+        }
+    }
+
+    private async Task Eliminar(Producto p)
+    {
+        if (trabajando) return;
+        trabajando = true;
+        error = null;
+        try
+        {
+            var token = await GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                error = "No tienes sesión activa.";
+                return;
+            }
+
+            var request = new HttpRequestMessage(HttpMethod.Delete, $"api/productos/{p.Id}");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            var resp = await Http.SendAsync(request);
+            if (!resp.IsSuccessStatusCode)
+            {
+                error = $"Error al eliminar: {resp.StatusCode}";
+                return;
+            }
+            await OnProductosChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            error = $"Excepción: {ex.Message}";
+        }
+        finally
+        {
+            trabajando = false;
+        }
+    }
+
+    private void EditarProducto(Producto p)
+    {
+        productoEditar = p;
+        mostrarEdicion = true;
+    }
+
+    private void CerrarEdicion()
+    {
+        mostrarEdicion = false;
+        productoEditar = null;
+    }
+}
+
+<div>
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-xl font-semibold text-gray-800">Productos</h3>
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <span class="text-sm text-red-600">@error</span>
+        }
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="min-w-full text-left border rounded-xl overflow-hidden bg-red-100">
+
+            <thead class="bg-gray-100 text-gray-700">
+                <tr>
+                    <th class="px-4 py-2 w-[120px]">Imagen</th>
+                    <th class="px-4 py-2 w-[200px]">Nombre</th>
+                    <th class="px-4 py-2 w-[300px]">Descripción</th>
+                    <th class="px-4 py-2 w-[100px]">Precio</th>
+                    <th class="px-4 py-2 w-[100px]">Estado</th>
+                    <th class="px-4 py-2 text-right w-[180px]">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Productos is null || Productos.Count == 0)
+                {
+                    <tr>
+                        <td colspan="6" class="px-4 py-6 text-center text-gray-500">Sin productos.</td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var p in Productos)
+                    {
+                        <tr class="border-t hover:bg-gray-50">
+                            <!-- Imagen con hover preview -->
+                            <td class="px-4 py-2">
+                                <div class="relative group inline-block">
+                             <img src="@(p.ImagenUrls != null && p.ImagenUrls.Count>0 ? p.ImagenUrls[0] : string.Empty)"
+                                 alt="@p.Nombre"
+                                 class="w-24 h-24 object-cover rounded-lg" />
+
+                                    <!-- Preview al pasar el mouse -->
+                                    <div class="absolute left-full top-1/2 -translate-y-1/2 ml-2 
+                                                hidden group-hover:flex z-50">
+                                <img src="@(p.ImagenUrls != null && p.ImagenUrls.Count>0 ? p.ImagenUrls[0] : string.Empty)"
+                                    alt="Preview"
+                                    class="w-48 h-auto max-h-[220px] rounded-lg shadow-lg border bg-white" />
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- Nombre -->
+                            <td class="px-4 py-2 font-medium">@p.Nombre</td>
+
+                            <!-- Descripción -->
+                            <td class="px-4 py-2 text-sm text-gray-600 max-w-xs truncate" title="@p.Descripcion">
+                                @p.Descripcion
+                            </td>
+
+                            <!-- Precio -->
+                            <td class="px-4 py-2">$@p.Precio</td>
+
+                            <!-- Estado -->
+                            <td class="px-4 py-2">
+                                @if (p.Activo)
+                                {
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        Activo
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-700">
+                                        Oculto
+                                    </span>
+                                }
+                            </td>
+
+                            <!-- Acciones -->
+                            <td class="px-4 py-2">
+                                <div class="flex justify-end gap-2">
+                                    <button
+                                        disabled="@trabajando"
+                                        @onclick="() => ToggleActivo(p)"
+                                        class="px-3 py-1.5 rounded-lg text-sm border hover:bg-gray-100 disabled:opacity-50">
+                                        @(p.Activo ? "Ocultar" : "Mostrar")
+                                    </button>
+
+                                    <button
+                                        disabled="@trabajando"
+                                        @onclick="() => EditarProducto(p)"
+                                        class="px-3 py-1.5 rounded-lg text-sm bg-blue-100 text-blue-800 hover:bg-blue-200 disabled:opacity-50">
+                                        Editar
+                                    </button>
+
+                                    <button
+                                        disabled="@trabajando"
+                                        @onclick="() => Eliminar(p)"
+                                        class="px-3 py-1.5 rounded-lg text-sm bg-red-100 text-red-800 hover:bg-red-200 disabled:opacity-50">
+                                        Eliminar
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal edición -->
+@if (mostrarEdicion && productoEditar is not null)
+{
+    <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+        <div class="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-2xl">
+            <button class="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl"
+                    @onclick="CerrarEdicion">&times;</button>
+
+            <FormProducto ProductoExistente="productoEditar"
+                          OnProductoGuardado="async () => { await OnProductosChanged.InvokeAsync(); CerrarEdicion(); }" />
+        </div>
+    </div>
+}

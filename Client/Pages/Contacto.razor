@@ -1,0 +1,137 @@
+@page "/contacto"
+@using Microsoft.AspNetCore.Components.Forms
+@using System.ComponentModel.DataAnnotations
+
+<PageTitle>Contacto - Creaciones Normita</PageTitle>
+
+<!-- Sección principal SIN fondo blanco (deja ver el gradiente del <main>) -->
+<section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 bg-transparent">
+    <h2 class="text-3xl font-bold text-center text-gray-800 mb-4">Contáctanos</h2>
+    <p class="text-center text-gray-600 mb-10">
+        Estamos aquí para ayudarte a encontrar el vestido de tus sueños ✨
+    </p>
+
+    <!-- Contactos rápidos -->
+    <div class="flex flex-wrap justify-center gap-6 mb-10 text-lg">
+        <a href="https://wa.me/50376970004" target="_blank" class="flex items-center gap-2 text-gray-700 hover:text-green-500 transition">
+            <i class="bi bi-whatsapp text-2xl"></i> WhatsApp
+        </a>
+        <a href="https://www.facebook.com/creacionesnormita.sv" target="_blank" class="flex items-center gap-2 text-gray-700 hover:text-blue-600 transition">
+            <i class="bi bi-facebook text-2xl"></i> Facebook
+        </a>
+        <a href="https://www.instagram.com/creacionesnormita.sv" target="_blank" class="flex items-center gap-2 text-gray-700 hover:text-pink-500 transition">
+            <i class="bi bi-instagram text-2xl"></i> Instagram
+        </a>
+        <a href="https://www.tiktok.com/@@creacionesnormitasv" target="_blank" class="flex items-center gap-2 text-gray-700 hover:text-black transition">
+            <i class="bi bi-tiktok text-2xl"></i> TikTok
+        </a>
+        <a href="mailto:contacto@creacionesnormita.sv" class="flex items-center gap-2 text-gray-700 hover:text-red-500 transition">
+            <i class="bi bi-envelope-fill text-2xl"></i> Correo
+        </a>
+    </div>
+
+    <!-- Formulario y mapa -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+        <!-- Formulario (tarjeta blanca) -->
+        <div class="bg-white shadow-md rounded-xl p-6">
+            <EditForm Model="@mensaje" OnValidSubmit="@EnviarFormulario" class="space-y-4">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div>
+                    <label class="block mb-1 font-medium text-gray-700">Nombre</label>
+                    <InputText class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-300"
+                               @bind-Value="mensaje.Nombre" />
+                    <ValidationMessage For="@(() => mensaje.Nombre)" class="text-red-500 text-sm" />
+                </div>
+
+                <div>
+                    <label class="block mb-1 font-medium text-gray-700">Correo</label>
+                    <InputText class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-300"
+                               @bind-Value="mensaje.Correo" type="email" />
+                    <ValidationMessage For="@(() => mensaje.Correo)" class="text-red-500 text-sm" />
+                </div>
+
+                <div>
+                    <label class="block mb-1 font-medium text-gray-700">Mensaje</label>
+                    <InputTextArea class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-300"
+                                   @bind-Value="mensaje.Contenido" rows="5" />
+                    <ValidationMessage For="@(() => mensaje.Contenido)" class="text-red-500 text-sm" />
+                </div>
+
+                <button type="submit"
+                        class="bg-pink-200 text-gray-900 px-5 py-2 rounded-lg font-medium hover:bg-purple-200 transition">
+                    Enviar
+                </button>
+            </EditForm>
+
+            @if (enviado)
+            {
+                <div class="mt-4 bg-green-100 text-green-800 px-4 py-3 rounded-lg">
+                    ¡Gracias por contactarnos! Te responderemos pronto.
+                </div>
+            }
+        </div>
+
+        <!-- Mapa (tarjeta blanca) -->
+        <div class="bg-white overflow-hidden rounded-xl shadow-md h-[400px]">
+            <iframe 
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3876.1578052685393!2d-89.19205882491427!3d13.708114186679152!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8f63316a6c29e2ab%3A0x456f594886a42248!2sCreaciones%20Normita%20El%20Salvador!5e0!3m2!1ses!2ssv!4v1758001985717!5m2!1ses!2ssv"
+                width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy"
+                referrerpolicy="no-referrer-when-downgrade">
+            </iframe>
+        </div>
+    </div>
+</section>
+
+<!-- Información extra -->
+<section class="bg-pink-50 py-12 mt-16">
+    <div class="max-w-5xl mx-auto text-center space-y-6">
+        <h3 class="text-2xl font-bold text-gray-800">Información adicional</h3>
+        <p class="text-gray-600">Puedes visitarnos en nuestra boutique o escribirnos en cualquier momento.</p>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mt-6">
+            <div class="p-6 bg-white rounded-xl shadow-md">
+                <h4 class="font-semibold text-pink-600 mb-2">📍 Dirección</h4>
+                <p class="text-gray-600">1a Norte y 19 Calle Pte. 11, San Salvador CP 1101</p>
+            </div>
+            <div class="p-6 bg-white rounded-xl shadow-md">
+                <h4 class="font-semibold text-pink-600 mb-2">⏰ Horarios</h4>
+                <p class="text-gray-600">Lunes a Sábado<br/>9:00 AM – 5:00 PM</p>
+            </div>
+            <div class="p-6 bg-white rounded-xl shadow-md">
+                <h4 class="font-semibold text-pink-600 mb-2">📞 Teléfono</h4>
+                <p class="text-gray-600">+503 7697 0004</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<Whatsapp/>
+
+@code {
+    private MensajeContacto mensaje = new();
+    private bool enviado;
+
+    private async Task EnviarFormulario()
+    {
+        // Simula el envío
+        await Task.Delay(200);
+        enviado = true;
+    }
+
+    public class MensajeContacto
+    {
+        [Required(ErrorMessage = "Tu nombre es requerido")]
+        public string Nombre { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "El correo es requerido")]
+        [EmailAddress(ErrorMessage = "Correo inválido")]
+        public string Correo { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Cuéntanos tu mensaje")]
+        [MinLength(10, ErrorMessage = "Por favor escribe al menos 10 caracteres")]
+        public string Contenido { get; set; } = string.Empty;
+    }
+}
+

@@ -1,0 +1,192 @@
+@namespace Client.Components
+@using Shared.Models
+@inject IJSRuntime JS
+
+@if (Mostrar && Producto is not null)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center">
+        <!-- Fondo oscuro -->
+        <button type="button" class="absolute inset-0 w-full h-full bg-black/50" @onclick="OnClose" aria-label="Cerrar modal (fondo)"></button>
+
+        <!-- Contenedor modal -->
+        <div role="dialog" aria-modal="true" aria-labelledby="cotizar-title"
+             class="relative mx-auto w-[95%] max-w-4xl bg-white rounded-2xl shadow-2xl p-6
+                        flex flex-col lg:flex-row gap-6 max-h-[90vh] overflow-y-auto">
+
+            <!-- Botón cerrar -->
+            <button type="button" @onclick="OnClose"
+                    class="absolute top-3 right-3 text-gray-500 hover:text-gray-800 text-2xl"
+                    aria-label="Cerrar modal">
+                &times;
+            </button>
+
+            <!-- Carrusel de imágenes -->
+            <div class="w-full lg:w-1/2 relative">
+                @if (Producto.ImagenUrls != null && Producto.ImagenUrls.Count > 0)
+                {
+                    var imagenes = Producto.ImagenUrls.Take(maxImagenes).ToList();
+                    <div id="carousel" class="relative">
+                        <div class="overflow-hidden rounded-xl">
+                            @for (int i = 0; i < imagenes.Count; i++)
+                            {
+                                <div class="@(i == indiceImagenActual ? "block" : "hidden")">
+                                    <img src="@imagenes[i]" alt="@Producto.Nombre" class="w-full h-64 lg:h-[500px] object-cover rounded-lg" />
+                                </div>
+                            }
+                        </div>
+                        <!-- Controles del carrusel -->
+                        @if (imagenes.Count > 1)
+                        {
+                            <button type="button" class="absolute top-1/2 left-2 transform -translate-y-1/2 bg-gray-800 text-white p-2 rounded-full hover:bg-gray-700" @onclick="AnteriorImagen">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-arrow-left-circle-fill" viewBox="0 0 16 16">
+                                    <path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0m3.5 7.5a.5.5 0 0 1 0 1H5.707l2.147 2.146a.5.5 0 0 1-.708.708l-3-3a.5.5 0 0 1 0-.708l3-3a.5.5 0 1 1 .708.708L5.707 7.5z" />
+                                </svg>
+                            </button>
+                            <button type="button" class="absolute top-1/2 right-2 transform -translate-y-1/2 bg-gray-800 text-white p-2 rounded-full hover:bg-gray-700" @onclick="SiguienteImagen">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-arrow-right-circle-fill" viewBox="0 0 16 16">
+                                    <path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0M4.5 7.5a.5.5 0 0 0 0 1h5.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5z" />
+                                </svg>
+                            </button>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <img src="/images/placeholder.png" alt="Sin imagen" class="w-full h-64 lg:h-[500px] object-cover rounded-xl" />
+                }
+            </div>
+
+            <!-- Detalles -->
+            <div class="w-full lg:w-1/2 flex flex-col">
+                <h2 id="cotizar-title" class="text-2xl font-bold text-gray-800 mb-2">
+                    Cotizar @Producto.Nombre
+                </h2>
+                <p class="text-gray-600 mb-3">@Producto.Descripcion</p>
+                <p class="text-gray-600 mb-4">
+                    Precio: <span class="font-semibold text-gray-900">$@Producto.Precio</span>
+                </p>
+
+                <!-- Talla -->
+                <label class="block font-medium text-gray-700 mb-2">Talla</label>
+                <select class="w-full border border-gray-300 rounded-lg px-3 py-2 mb-5
+                                   focus:ring-2 focus:ring-pink-300 focus:outline-none"
+                        @bind="TallaSeleccionada">
+                    <option>XS</option>
+                    <option>S</option>
+                    <option>M</option>
+                    <option>L</option>
+                    <option>XL</option>
+                </select>
+
+                <!-- Formulario -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <input id="nombre" placeholder="Nombre" autocomplete="name"
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2
+                                          focus:ring-2 focus:ring-pink-300 focus:outline-none"
+                               @bind="NombreCliente" />
+                        @if (MostrarErrores && !EsNombreValido(NombreCliente))
+                        {
+                            <p class="text-sm text-red-600 mt-1">Ingresa un nombre válido (solo letras y espacios).</p>
+                        }
+                    </div>
+                    <div>
+                        <input id="telefono" placeholder="Teléfono" autocomplete="tel" inputmode="tel"
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2
+                                          focus:ring-2 focus:ring-pink-300 focus:outline-none"
+                               @bind="TelefonoCliente" />
+                        @if (MostrarErrores && !EsTelefonoValido(TelefonoCliente))
+                        {
+                            <p class="text-sm text-red-600 mt-1">Ingresa un número de teléfono válido.</p>
+                        }
+                    </div>
+                </div>
+
+                <!-- Aviso -->
+                <div class="bg-yellow-50 border-l-4 border-yellow-300 text-yellow-800 text-sm p-3 rounded-md mt-5">
+                    ⚠️ <span class="font-medium">Nota:</span>
+                    Si es la primera vez que nos escribes, WhatsApp podría abrir el chat vacío.
+                    En ese caso, simplemente pega el mensaje (ya se copiará automáticamente en tu portapapeles 📋).
+                </div>
+
+                <!-- Botones -->
+                <div class="flex flex-col sm:flex-row justify-end gap-3 mt-6">
+                    <button type="button" @onclick="OnClose"
+                            class="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-100">
+                        Cancelar
+                    </button>
+                    <button type="button" @onclick="EnviarCotizacion"
+                            class="px-4 py-2 bg-pink-200 text-gray-900 rounded-lg hover:bg-purple-200 transition">
+                        Enviar Cotización
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Mostrar { get; set; }
+    [Parameter] public Producto? Producto { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string TallaSeleccionada { get; set; } = "M";
+    private string NombreCliente { get; set; } = "";
+    private string TelefonoCliente { get; set; } = "";
+    private bool MostrarErrores { get; set; } = false;
+
+    private const string WhatsAppPhone = "50376831744";
+
+    private bool EsNombreValido(string nombre) =>
+        !string.IsNullOrWhiteSpace(nombre) &&
+        nombre.All(c => char.IsLetter(c) || char.IsWhiteSpace(c));
+
+    private bool EsTelefonoValido(string tel) =>
+        !string.IsNullOrWhiteSpace(tel) &&
+        tel.All(char.IsDigit) &&
+        tel.Length >= 8 && tel.Length <= 15; // internacional
+
+    private async Task EnviarCotizacion()
+    {
+        MostrarErrores = !EsNombreValido(NombreCliente) || !EsTelefonoValido(TelefonoCliente);
+        if (MostrarErrores || Producto is null) return;
+
+        var msg = $@"Hola, quisiera cotizar: 
+                    *{Producto.Nombre}*
+                    Precio: ${Producto.Precio}
+                    Talla: {TallaSeleccionada}
+                    Descripción: {Producto.Descripcion}
+
+                    Imagen: { (Producto.ImagenUrls != null && Producto.ImagenUrls.Count>0 ? Producto.ImagenUrls[0] : "") }
+
+                    Mis datos:
+                    Nombre: {NombreCliente}
+                    Teléfono: {TelefonoCliente}";
+
+        var url = $"https://wa.me/{WhatsAppPhone}?text={Uri.EscapeDataString(msg)}";
+
+        // Abre WhatsApp
+        await JS.InvokeVoidAsync("window.open", url, "_blank");
+
+        // Copia el mensaje como fallback
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", msg);
+
+        await OnClose.InvokeAsync();
+    }
+
+    // Carrusel
+    private int maxImagenes = 3;
+    private int indiceImagenActual = 0;
+
+    private void AnteriorImagen()
+    {
+        if (Producto?.ImagenUrls == null || Producto.ImagenUrls.Count == 0) return;
+        indiceImagenActual = (indiceImagenActual - 1 + Math.Min(Producto.ImagenUrls.Count, maxImagenes)) % Math.Min(Producto.ImagenUrls.Count, maxImagenes);
+    }
+
+    private void SiguienteImagen()
+    {
+        if (Producto?.ImagenUrls == null || Producto.ImagenUrls.Count == 0) return;
+        indiceImagenActual = (indiceImagenActual + 1) % Math.Min(Producto.ImagenUrls.Count, maxImagenes);
+    }
+}

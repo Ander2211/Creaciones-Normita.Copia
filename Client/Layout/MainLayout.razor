@@ -1,0 +1,20 @@
+﻿@inherits LayoutComponentBase
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@using Client.Components;
+
+
+<!-- 🔹 Navbar fijo -->
+<header>
+    <NavMenu />
+</header>
+
+<Toast />
+<!-- 🔹 Contenido principal -->
+<main class="pt-20 min-h-screen 
+             bg-gradient-to-b from-pink-50 to-purple-50">
+    @Body
+</main>
+
+<!-- 🔹 Footer -->
+<Footer />
